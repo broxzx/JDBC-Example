@@ -5,6 +5,9 @@ import com.project.jdbc.starter.entity.TicketEntity;
 import com.project.jdbc.starter.util.ConnectionManager;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 public class TicketDao {
 
@@ -16,9 +19,95 @@ public class TicketDao {
             """;
 
     private static final String SAVE_SQL = """
-        INSERT INTO ticket (passenger_no, passenger_name, flight_id, seat_no, cost)
-        values (?, ?, ?, ?, ?);
-        """;
+            INSERT INTO ticket (passenger_no, passenger_name, flight_id, seat_no, cost)
+            values (?, ?, ?, ?, ?);
+            """;
+
+    private static final String UPDATE_SQL = """
+            UPDATE ticket
+            SET passenger_no = ?,
+            passenger_name = ?,
+            flight_id = ?,
+            seat_no = ?,
+            cost = ?
+            WHERE id = ?;
+            """;
+
+    private static final String FIND_BY_ID = """
+            SELECT *  FROM ticket
+            WHERE id = ?;
+            """;
+
+    private static final String FIND_ALL = """
+            SELECT * FROM ticket
+            """;
+
+    public List<TicketEntity> findAll() {
+        List<TicketEntity> result = new ArrayList<>();
+        try (Connection connection = ConnectionManager.open();
+             PreparedStatement preparedStatement = connection.prepareStatement(FIND_ALL)) {
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            while (resultSet.next()) {
+                TicketEntity ticketEntity = TicketEntity.builder()
+                        .id(resultSet.getLong("id"))
+                        .passengerNo(resultSet.getString("passenger_no"))
+                        .passengerName(resultSet.getString("passenger_name"))
+                        .flightId(resultSet.getLong("flight_id"))
+                        .seatNo(resultSet.getString("seat_no"))
+                        .cost(resultSet.getBigDecimal("cost"))
+                        .build();
+
+                result.add(ticketEntity);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return result;
+    }
+
+    public void update(TicketEntity ticketEntity) {
+        try (Connection connection = ConnectionManager.open();
+             PreparedStatement preparedStatement = connection.prepareStatement(UPDATE_SQL)) {
+            preparedStatement.setString(1, ticketEntity.getPassengerNo());
+            preparedStatement.setString(2, ticketEntity.getPassengerName());
+            preparedStatement.setLong(3, ticketEntity.getFlightId());
+            preparedStatement.setString(4, ticketEntity.getSeatNo());
+            preparedStatement.setBigDecimal(5, ticketEntity.getCost());
+            preparedStatement.setLong(6, ticketEntity.getId());
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    public Optional<TicketEntity> findById(Long id) {
+        try (Connection connection = ConnectionManager.open();
+             PreparedStatement preparedStatement = connection.prepareStatement(FIND_BY_ID)) {
+            preparedStatement.setLong(1, id);
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+
+            TicketEntity ticketEntity = null;
+            if (resultSet.next()) {
+                ticketEntity = TicketEntity.builder()
+                        .id(resultSet.getLong("id"))
+                        .passengerNo(resultSet.getString("passenger_no"))
+                        .passengerName(resultSet.getString("passenger_name"))
+                        .flightId(resultSet.getLong("flight_id"))
+                        .seatNo(resultSet.getString("seat_no"))
+                        .cost(resultSet.getBigDecimal("cost"))
+                        .build();
+            }
+
+            return Optional.ofNullable(ticketEntity);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public boolean deleteById(Long ticketId) {
         try (Connection connection = ConnectionManager.open();
