@@ -1,6 +1,7 @@
 package com.project.jdbc.starter.dao;
 
 
+import com.project.jdbc.starter.dto.TicketFilter;
 import com.project.jdbc.starter.entity.TicketEntity;
 import com.project.jdbc.starter.util.ConnectionManager;
 
@@ -42,6 +43,39 @@ public class TicketDao {
             SELECT * FROM ticket
             """;
 
+    public List<TicketEntity> findAll(TicketFilter filter) {
+        List<Object> parameters = new ArrayList<>();
+        parameters.add(filter.limit());
+        parameters.add(filter.offset());
+
+        String sql = FIND_ALL + """
+                LIMIT ?
+                OFFSET ?
+                """;
+
+        try (Connection open = ConnectionManager.open();
+             PreparedStatement preparedStatement = open.prepareStatement(sql)) {
+            for (int i = 0; i < parameters.size(); i++) {
+                preparedStatement.setObject(i + 1, parameters.get(i));
+            }
+
+            ResultSet resultSet = preparedStatement.executeQuery();
+            List<TicketEntity> result = new ArrayList<>();
+
+            while (resultSet.next()) {
+                TicketEntity ticketEntity = buildTicketDEntity(resultSet);
+
+                result.add(ticketEntity);
+            }
+
+            return result;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
     public List<TicketEntity> findAll() {
         List<TicketEntity> result = new ArrayList<>();
         try (Connection connection = ConnectionManager.open();
@@ -49,14 +83,7 @@ public class TicketDao {
             ResultSet resultSet = preparedStatement.executeQuery();
 
             while (resultSet.next()) {
-                TicketEntity ticketEntity = TicketEntity.builder()
-                        .id(resultSet.getLong("id"))
-                        .passengerNo(resultSet.getString("passenger_no"))
-                        .passengerName(resultSet.getString("passenger_name"))
-                        .flightId(resultSet.getLong("flight_id"))
-                        .seatNo(resultSet.getString("seat_no"))
-                        .cost(resultSet.getBigDecimal("cost"))
-                        .build();
+                TicketEntity ticketEntity = buildTicketDEntity(resultSet);
 
                 result.add(ticketEntity);
             }
@@ -93,14 +120,7 @@ public class TicketDao {
 
             TicketEntity ticketEntity = null;
             if (resultSet.next()) {
-                ticketEntity = TicketEntity.builder()
-                        .id(resultSet.getLong("id"))
-                        .passengerNo(resultSet.getString("passenger_no"))
-                        .passengerName(resultSet.getString("passenger_name"))
-                        .flightId(resultSet.getLong("flight_id"))
-                        .seatNo(resultSet.getString("seat_no"))
-                        .cost(resultSet.getBigDecimal("cost"))
-                        .build();
+                ticketEntity = buildTicketDEntity(resultSet);
             }
 
             return Optional.ofNullable(ticketEntity);
@@ -154,5 +174,16 @@ public class TicketDao {
 
     public static TicketDao getInstance() {
         return INSTANCE;
+    }
+
+    private static TicketEntity buildTicketDEntity(ResultSet resultSet) throws SQLException {
+        return TicketEntity.builder()
+                .id(resultSet.getLong("id"))
+                .passengerNo(resultSet.getString("passenger_no"))
+                .passengerName(resultSet.getString("passenger_name"))
+                .flightId(resultSet.getLong("flight_id"))
+                .seatNo(resultSet.getString("seat_no"))
+                .cost(resultSet.getBigDecimal("cost"))
+                .build();
     }
 }
